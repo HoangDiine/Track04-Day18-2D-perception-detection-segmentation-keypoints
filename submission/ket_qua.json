@@ -1,0 +1,80 @@
+{
+  "progress": {
+    "box_iou": "ok",
+    "nms": "ok",
+    "batched_nms": "ok",
+    "average_precision": "ok",
+    "mask_iou": "ok",
+    "polygon_to_mask": "ok",
+    "mask_to_yolo_seg": "ok",
+    "autolabel": "ok",
+    "oks": "ok",
+    "joint_angle": "ok",
+    "FLIP_IDX": "ok"
+  },
+  "latency": [
+    {
+      "Cấu hình": "one-to-many + NMS, conf 0.25",
+      "preprocess (ms)": 7.54,
+      "inference (ms)": 46.35,
+      "postprocess (ms)": 6.04,
+      "số box": 5
+    },
+    {
+      "Cấu hình": "one-to-many + NMS, conf 0.001",
+      "preprocess (ms)": 3.49,
+      "inference (ms)": 26.07,
+      "postprocess (ms)": 3.01,
+      "số box": 203
+    },
+    {
+      "Cấu hình": "one-to-one NMS-free, conf 0.25",
+      "preprocess (ms)": 3.21,
+      "inference (ms)": 25.33,
+      "postprocess (ms)": 0.88,
+      "số box": 5
+    },
+    {
+      "Cấu hình": "one-to-one NMS-free, conf 0.001",
+      "preprocess (ms)": 4.89,
+      "inference (ms)": 29.99,
+      "postprocess (ms)": 1.27,
+      "số box": 204
+    }
+  ],
+  "result_4b": {
+    "flip_idx": "giải phẫu",
+    "epochs": 40,
+    "imgsz": 640,
+    "Box mAP50-95": 0.9303488492063492,
+    "Pose mAP50": 0.995,
+    "Pose mAP50-95": 0.4573462529843696,
+    "train (phút)": 4.4
+  },
+  "result_4c": [
+    {
+      "Model": "flip_idx giải phẫu",
+      "Pose mAP50-95 — val gốc": 0.4573462529843696,
+      "Pose mAP50-95 — val lật gương": 0.43884777970456634
+    }
+  ],
+  "answers": {
+    "Q1": "(a) Có 6.300 dự đoán thô: 80×60 + 40×30 + 20×15 trên ba mức stride. Ảnh cao 480 thay vì 640 nên có ít vị trí lưới hơn ảnh vuông 640×640 (8.400). (b) Nhãn gốc là cxcywh (tâm + rộng/cao), nhưng bị đọc như xywh (góc trên-trái + rộng/cao), làm tâm box dịch phải và xuống nửa chiều rộng/cao.",
+    "Q2": "Cột postprocess thay đổi nhiều nhất; inference thường gần nhau vì hai head dùng cùng backbone. Trên lần đo T4 này, conf=0.25 cho 6.04 ms (one-to-many + NMS) so với 0.88 ms (NMS-free); ở conf=0.001 lần lượt là 3.01 ms và 1.27 ms. Chênh lệch rõ hơn ở conf thấp vì NMS phải sắp xếp và so IoU trên nhiều ứng viên; cảnh đông làm số box trùng tăng. CPU/NPU thường có ít lợi thế song song hơn GPU nên bước NMS tuần tự tốn độ trễ và bộ nhớ hơn, khiến head NMS-free có ích hơn.",
+    "Q3": "(a) IoU 0.75 > ngưỡng 0.7 nên NMS loại box điểm thấp hơn, có nguy cơ bỏ người nếu hai công nhân sát nhau. Tăng ngưỡng giữ lại nhiều box hơn nhưng dễ duplicate; giảm ngưỡng loại duplicate mạnh hơn nhưng tăng false negative trong cảnh đông. (b) Head one-to-many cho tín hiệu giám sát dày và nhiều positive assignment, giúp tối ưu backbone/head ổn định; head one-to-one tối ưu output cuối không NMS.",
+    "Q4": "(a) Đếm semantic thiếu khi nhiều người chạm/che nhau thành một vùng liên thông; đếm thừa khi một người bị tách thành nhiều mảnh bởi che khuất hoặc nhiễu. Panoptic kết hợp semantic với instance ID cho từng vật thể “thing”, nên đếm theo ID thay vì component. (b) Trong vùng box “bus”, bản đồ semantic chủ yếu gán “train”; có thể do hình dáng/thân xe dài, các cửa sổ và nền đường ray giống tàu trong dữ liệu train, cộng với khác biệt góc nhìn.",
+    "Q5": "(a) Prototype YOLO-seg dùng lưới chung độ phân giải thấp nên vật thể nhỏ chỉ phủ vài ô, làm mất biên mảnh. Mask R-CNN lấy mask RoI 28×28 cố định, nên khi RoI là vật thể lớn, mask phải phóng to nhiều và biên tương đối thô. (b) Ghép tham lam từng mask có thể cho nhiều mask YOLO cùng chọn một mask Mask R-CNN tốt nhất, bỏ sót đối tượng khác; Hungarian tối ưu tổng IoU với ghép một-một.",
+    "Q6": "Điểm A nằm trong thân người nên SAM trả mask gần toàn thân; điểm B gần chân/biên có thể chỉ tách ra một mảnh. Prompt box bao đối tượng ổn định hơn vì ràng buộc phạm vi và ít phụ thuộc vị trí điểm. Dùng SAM trực tiếp khi cần mask linh hoạt/chất lượng cao và độ trễ, bộ nhớ, chi phí GPU cho phép; dùng SAM tạo nhãn rồi train YOLO26-seg khi cần chạy nhanh, gọn và nhất quán ở triển khai hàng loạt.",
+    "Q7": "Argmax luôn chọn ô có heatmap lớn nhất trong vùng heatmap, kể cả khi điểm thật nằm ngoài ảnh; khi đổi lại toạ độ ảnh, nó thường ghim dự đoán vào mép khung thay vì biểu diễn “không thấy”. Vì vậy mỗi keypoint cần confidence để lọc điểm yếu/ngoài khung và downstream có thể bỏ qua hoặc xử lý riêng.",
+    "Q8": "Theo đồ thị, với người 40×80 OKS xuống dưới 0.5 khi sai số chỉ vài pixel (xấp xỉ 6 px); với người 250×500 cần sai số lớn hơn nhiều, khoảng 30–40 px. Sigma của mắt nhỏ hơn hông vì mắt có vị trí giải phẫu chính xác hơn và sai số vài pixel là đáng kể; camera cao làm người chỉ ~80 px nên ngay cả sai lệch nhỏ ở đầu/chân cũng tác động mạnh đến OKS và luật hành động.",
+    "Q9": "(a) Báo nhầm khi người cúi nhặt đồ/quỳ hoặc đang ngồi; bỏ sót khi người ngã nhưng bị che khuất hoặc nằm ngang mà keypoint thiếu. (b) Xoay ảnh tạo hướng cơ thể, tỉ lệ khung hình và phân bố điểm khác dữ liệu train, nên detector/pose model giảm recall. (c) Hệ thống thật cần confidence và xử lý che khuất, theo dõi người qua nhiều khung hình, lọc nhiễu theo thời gian, vùng camera hiệu chuẩn, cảnh báo có hysteresis và kiểm thử trên dữ liệu triển khai.",
+    "Q10": "Không nhất thiết giảm: vì train và val đều chỉ có hổ quay sang phải, metric này không kiểm tra khả năng tổng quát sang hướng ngược lại. Đây thành bug khi triển khai có hổ quay sang trái/phải hoặc ảnh bị lật: nếu keypoint trái/phải không được hoán đổi theo giải phẫu, model học/đánh giá nhầm chân đối xứng và pose bị đảo.",
+    "Q11": "Trong 6 ảnh validation có OKS thấp nhất (ví dụ Frame_67: 0.64, Frame_17: 0.65, Frame_65: 0.66), các điểm ở chân sau thường sát/chồng lên nhau; hock và paw của hai chân dễ bị lệch hoặc gán nhầm trái–phải. Bộ kiểm tra cũng thấy 4/53 ảnh có OKS tăng khi đổi cặp trái–phải. Khắc phục: rà lại nhãn theo góc nhìn giải phẫu, bổ sung ảnh thật có hổ quay cả hai hướng và chân bị che/cắt nhau, rồi kiểm tra lỗi riêng từng keypoint.\n\nKiểu lỗi thứ hai là định vị đầu mút chân (paw/hock) chưa chính xác khi chân khuất hoặc nằm sát nền: điểm dự đoán lệch khỏi điểm GT dù hộp hổ vẫn tốt. Khắc phục: thêm ảnh cận cảnh và nhiều tư thế/độ che khuất, tăng độ phân giải crop khi train và dùng ngưỡng confidence theo từng keypoint ở bước ứng dụng. mAP tổng hợp chỉ giảm nhẹ từ 0.457 trên val gốc xuống 0.439 trên val lật gương, nên cần giữ val cân bằng hướng quay và xem lỗi theo từng keypoint để không bỏ sót lỗi trái–phải.",
+    "Q12": "Sigma đồng nhất là baseline tiện so sánh với Ultralytics, nhưng không có nghĩa sai số vài pixel ở mũi và gốc đuôi có mức độ tương đương. Ước lượng riêng theo keypoint bằng cách cho nhiều người gán nhãn lặp lại, đo độ phân tán giữa annotator sau khi chuẩn hoá theo kích thước đối tượng, rồi dùng median/robust spread làm sigma; chọn trên train và kiểm tra trên val độc lập."
+  },
+  "env": {
+    "device": "cuda",
+    "torch": "2.11.0+cu130",
+    "ultralytics": "8.4.171"
+  }
+}
